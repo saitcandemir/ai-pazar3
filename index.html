@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>22  Ai Pazar Gemini Canlı</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 20px; }
+        .container { background: #2d2d2d; display: inline-block; padding: 30px; border-radius: 25px; border: 2px solid #4285f4; max-width: 500px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .input-group { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
+        input[type="text"] { padding: 12px; border-radius: 10px; border: none; width: 70%; font-size: 16px; background: #eee; color: #333; }
+        button { cursor: pointer; transition: 0.3s; border: none; border-radius: 10px; font-weight: bold; }
+        .send-btn { background: #34a853; color: white; padding: 10px 20px; }
+        .mic-btn { background: #4285f4; color: white; width: 60px; height: 60px; border-radius: 50%; font-size: 25px; margin-bottom: 10px; }
+        #status { color: #f1c40f; margin: 15px 0; font-size: 14px; min-height: 20px; font-weight: bold; }
+        #aiResponse { background: #3d3d3d; padding: 20px; border-radius: 15px; margin-top: 20px; text-align: left; line-height: 1.5; min-height: 50px; border-left: 5px solid #4285f4; color: #fff; }
+        #errorLog { margin-top: 15px; background: #601a1a; color: #ff9999; padding: 10px; border-radius: 8px; font-size: 12px; display: none; text-align: left; border: 1px solid red; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🚀 Ai Pazar Gemini</h1>
+    <div id="status">Konuşmak için mikrofona bas veya mesaj yaz</div>
+    
+    <button id="startBtn" class="mic-btn" title="Konuşmak için tıkla">🎙️</button>
+
+    <div class="input-group">
+        <input type="text" id="userInput" placeholder="Mesajınızı yazın...">
+        <button id="sendBtn" class="send-btn">Gönder</button>
+    </div>
+
+    <div id="aiResponse">Gemini'nin cevabı burada görünecek...</div>
+    <div id="errorLog"></div>
+</div>
+
+<script>
+    // DİKKAT: API Anahtarını aşağıdaki tırnakların (" ") arasına yapıştır!
+    var API_KEY = "AIzaSyChUn6h6F15AoWM1Huu2BgRVOQx0BEyuPw"; 
+
+    var startBtn = document.getElementById('startBtn');
+    var sendBtn = document.getElementById('sendBtn');
+    var userInput = document.getElementById('userInput');
+    var statusText = document.getElementById('status');
+    var aiResponse = document.getElementById('aiResponse');
+    var errorLog = document.getElementById('errorLog');
+
+    function showLog(msg) {
+        errorLog.style.display = "block";
+        errorLog.innerText = "Sistem Notu: " + msg;
+    }
+
+    // 1. SES TANIMA KONTROLÜ
+    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        var recognition = new SpeechRecognition();
+        recognition.lang = 'tr-TR';
+
+        startBtn.onclick = function() {
+            errorLog.style.display = "none";
+            try {
+                recognition.start();
+                statusText.innerText = "Seni dinliyorum... Konuşabilirsin.";
+            } catch(e) { 
+                showLog("Mikrofon hatası: " + e.message); 
+            }
+        };
+
+        recognition.onresult = function(event) {
+            var text = event.results[0][0].transcript;
+            userInput.value = text;
+            askGemini(text);
+        };
+
+        recognition.onerror = function(event) { 
+            statusText.innerText = "Mikrofon kapandı."; 
+            showLog("Mikrofon Hatası: " + event.error);
+        };
+    } else {
+        startBtn.style.display = "none";
+        statusText.innerText = "Tarayıcı mikrofonu desteklemiyor.";
+    }
+
+    // 2. GÖNDERME İŞLEMLERİ
+    sendBtn.onclick = function() { 
+        var val = userInput.value.trim();
+        if (val !== "") { askGemini(val); } 
+    };
+
+    userInput.onkeypress = function(e) { 
+        if (e.key === "Enter") {
+            var val = userInput.value.trim();
+            if (val !== "") { askGemini(val); }
+        }
+    };
+
+    // 3. GEMINI API ÇAĞRISI (EN GÜVENLİ YAZIM ŞEKLİ)
+    async function askGemini(soru) {
+        statusText.innerText = "Gemini yanıt hazırlıyor...";
+        aiResponse.innerText = "Düşünüyor...";
+        errorLog.style.display = "none";
+
+        var apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
+        
+        var requestBody = {
+            contents: [{
+                parts: [{ text: soru }]
+            }]
+        };
+
+        try {
+            var response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            var data = await response.json();
+
+            if (data.error) {
+                showLog("API Hatası: " + data.error.message);
+                aiResponse.innerText = "Hata oluştu, sistem notuna bak.";
+                return;
+            }
+
+            if (data.candidates && data.candidates[0]) {
+                var reply = data.candidates[0].content.parts[0].text;
+                aiResponse.innerText = reply;
+                statusText.innerText = "Yanıt geldi.";
+
+                // Sesli Okuma
+                var utter = new SpeechSynthesisUtterance(reply);
+                utter.lang = 'tr-TR';
+                window.speechSynthesis.speak(utter);
+            } else {
+                showLog("API boş yanıt döndü.");
+            }
+        } catch (err) {
+            showLog("Bağlantı Hatası: " + err.message);
+            aiResponse.innerText = "Bağlantı kurulamadı.";
+        }
+    }
+</script>
+
+</body>
+</html>
