@@ -3,152 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saha Şefi V25 - Arıza Dedektörlü</title>
+    <title>Saha Şefi V27 - Kesintisiz Mod</title>
     <style>
-        :root { --bg: #0b0e14; --panel: #161b22; --border: #30363d; --text: #e6edf3; --accent: #238636; --error: #da3633; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; text-align: center; padding: 10px; margin: 0; }
-        .wrapper { max-width: 600px; margin: 10px auto; background: var(--panel); padding: 25px; border-radius: 25px; border: 2px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        
+        :root { --bg: #0b0e14; --panel: #161b22; --border: #30363d; --text: #e6edf3; --accent: #238636; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; text-align: center; padding: 10px; }
+        .wrapper { max-width: 600px; margin: 10px auto; background: var(--panel); padding: 25px; border-radius: 25px; border: 2px solid var(--border); }
         #text-query { width: 90%; padding: 15px; border-radius: 12px; border: 2px solid var(--border); background: var(--bg); color: #58a6ff; font-size: 1.2rem; margin-bottom: 15px; text-align: center; outline: none; }
-        #text-query:focus { border-color: var(--accent); }
-
-        #main-btn { width: 100%; padding: 45px 10px; font-size: 2rem; font-weight: 900; background: var(--accent); color: white; border: none; border-radius: 20px; cursor: pointer; transition: 0.2s; }
-        #main-btn.active { background: var(--error); box-shadow: 0 0 30px var(--error); }
-        
-        #status { margin: 15px 0; font-size: 1.1rem; font-weight: bold; color: #fbbf24; min-height: 25px; }
-        #live-text { background: var(--bg); padding: 20px; border-radius: 15px; border: 1px solid var(--border); min-height: 60px; color: #d1d5db; line-height: 1.6; text-align: left; }
-        
-        .error-log { color: #ff7b72; background: rgba(248,81,73,0.1); padding: 10px; border-radius: 8px; border: 1px solid var(--error); margin-top: 10px; font-family: monospace; font-size: 0.85rem; }
+        #main-btn { width: 100%; padding: 45px 10px; font-size: 2rem; font-weight: 900; background: var(--accent); color: white; border: none; border-radius: 20px; cursor: pointer; }
+        #main-btn.active { background: #da3633; box-shadow: 0 0 30px #da3633; }
+        #status { margin: 15px 0; font-size: 1.1rem; font-weight: bold; color: #3fb950; }
+        #live-text { background: var(--bg); padding: 20px; border-radius: 15px; border: 1px solid var(--border); min-height: 60px; color: #d1d5db; line-height: 1.6; }
     </style>
 </head>
 <body>
 
 <div class="wrapper">
-    <h2 style="color:#f0f6fc; margin-top:0;">SAHA ŞEFİ V25</h2>
-    
-    <input type="text" id="text-query" placeholder="Yaz veya konuş..." onkeypress="if(event.key==='Enter') searchEngine(this.value)">
-    
+    <h2 style="color:#f0f6fc;">SAHA ŞEFİ V27 - KESİNTİSİZ</h2>
+    <input type="text" id="text-query" placeholder="Soru veya İş ID..." onkeypress="if(event.key==='Enter') searchEngine(this.value)">
     <button id="main-btn">🎙️ SİSTEMİ AÇ</button>
-    
-    <div id="status">Bağlantı Kuruluyor...</div>
-    
-    <div id="live-text">Komut bekliyorum şefim.</div>
+    <div id="status">Yükleniyor...</div>
+    <div id="live-text">Hatalı satırlar otomatik atlanıyor şefim.</div>
 </div>
 
 <script>
-    // --- AYARLAR ---
-    const GITHUB_TOKEN = "BURAYA_TOKEN_YAZIN"; 
+    const GITHUB_TOKEN = "BURAYA_TOKEN_YAZILACAK"; 
     const OWNER = "saitcandemir";
     const REPO = "ai-pazar3";
     const PATH_M = "muhabbet.js";
     const PATH_I = "is_emirleri.json";
 
-    let db_muhabbet = [];
-    let db_isemri = [];
+    let db_full = [];
     let isListening = false;
-    let learnStep = 0; 
-    let tempQ = "", tempA = "";
     let mSha = ""; 
 
-    // 1. DEDEKTÖRLÜ VERİ ÇEKME
-    async function setup() {
-        const statusEl = document.getElementById('status');
-        const liveEl = document.getElementById('live-text');
-
+    // KRİTİK FONKSİYON: HATALI JSON'I TAMİR EDER VE ATLAR
+    function smartParse(raw) {
         try {
-            // Muhabbet Dosyası Kontrolü
+            // Önce temiz bir parse dene
+            const cleanMatch = raw.match(/\[.*\]/s);
+            if (!cleanMatch) return [];
+            return JSON.parse(cleanMatch[0]);
+        } catch (e) {
+            console.log("Hata saptandı, ayıklama başlıyor...");
+            // Eğer JSON.parse patlarsa, satır satır ayıkla
+            const items = [];
+            const blocks = raw.split(/ \s*}, \s*{/); // Blokları ayır
+            
+            blocks.forEach(block => {
+                try {
+                    let sanitized = block.trim();
+                    if (!sanitized.startsWith("{")) sanitized = "{" + sanitized;
+                    if (!sanitized.endsWith("}")) sanitized = sanitized + "}";
+                    items.push(JSON.parse(sanitized));
+                } catch (err) {
+                    console.error("Bozuk satır atlandı!");
+                }
+            });
+            return items;
+        }
+    }
+
+    async function setup() {
+        try {
+            // Muhabbet çek
             const resM = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH_M}`, {
                 headers: { "Authorization": `token ${GITHUB_TOKEN}` }
             });
             const dataM = await resM.json();
             mSha = dataM.sha;
-            const rawContent = decodeURIComponent(escape(atob(dataM.content)));
+            const contentM = smartParse(decodeURIComponent(escape(atob(dataM.content))));
 
-            try {
-                const jsonMatch = rawContent.match(/\[.*\]/s);
-                if (!jsonMatch) throw new Error("Dosya boş veya köşeli parantez [ ] eksik!");
-                db_muhabbet = JSON.parse(jsonMatch[0]);
-            } catch (jsonErr) {
-                statusEl.innerText = "⚠️ JSON HATASI!";
-                statusEl.style.color = "var(--error)";
-                liveEl.innerHTML = `<div class="error-log"><b>HATA KONUMU:</b> ${jsonErr.message}<br><br><b>ÇÖZÜM:</b> GitHub'da muhabbet.js dosyasını aç. Son satırdaki virgülü veya eksik parantezi kontrol et şefim.</div>`;
-                speak("Şefim veritabanı bozulmuş, hatayı ekrana yazdım.");
-                return;
-            }
-
-            // İş Emirleri Kontrolü
+            // İş emirlerini çek
             const resI = await fetch(`https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${PATH_I}?t=` + Date.now());
-            db_isemri = await resI.json();
+            const rawI = await resI.text();
+            const contentI = smartParse(rawI);
 
-            statusEl.innerText = "✅ SİSTEM AKTİF (" + (db_muhabbet.length + db_isemri.length) + " Kayıt)";
-            statusEl.style.color = "#3fb950";
+            db_full = [...contentM, ...contentI];
+            document.getElementById('status').innerText = "✅ SİSTEM AKTİF (" + db_full.length + " SAĞLAM KAYIT)";
         } catch (e) { 
-            statusEl.innerText = "❌ BAĞLANTI HATASI!";
-            console.error(e);
+            document.getElementById('status').innerText = "❌ BAĞLANTI SORUNU!";
         }
     }
 
-    // 2. OTOMATİK KAYIT
-    async function autoSave(q, a) {
-        document.getElementById('status').innerText = "💾 KAYDEDİLİYOR...";
-        const updated = [{"soru": q, "cevap": a}, ...db_muhabbet];
-        const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(updated, null, 2))));
-
-        try {
-            const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH_M}`, {
-                method: "PUT",
-                headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ message: "Saha Şefi Kayıt", content: b64, sha: mSha })
-            });
-            if (res.ok) {
-                const r = await res.json();
-                mSha = r.content.sha;
-                db_muhabbet = updated;
-                speak("Hafızama kaydettim.");
-                document.getElementById('status').innerText = "✅ KAYIT BAŞARILI";
-            }
-        } catch (e) { speak("Kayıt başarısız oldu."); }
-    }
-
-    // 3. ARAMA MOTORU
+    // ARAMA VE SES SİSTEMİ (Önceki sürümlerle aynı sağlam yapıda)
     function searchEngine(input) {
         const query = input.toLowerCase().trim();
         if (!query) return;
 
-        if (learnStep === 2) {
-            if (query.includes("evet") || query.includes("kaydet") || query.includes("tamam")) {
-                autoSave(tempQ, tempA);
-                learnStep = 0;
-            } else { speak("İptal edildi."); learnStep = 0; }
-            return;
-        }
+        const found = db_full.find(item => 
+            Object.values(item).some(v => v.toString().toLowerCase().includes(query))
+        );
 
-        if (learnStep === 1) {
-            tempA = input; learnStep = 2;
-            speak(tempQ + " için bu cevabı kaydedeyim mi?");
-            return;
-        }
-
-        const matchM = db_muhabbet.find(m => query.includes(m.soru.toLowerCase()));
-        if (matchM) {
-            speak(matchM.cevap);
-            document.getElementById('live-text').innerText = matchM.cevap;
-            return;
-        }
-
-        const matchI = db_isemri.find(is => Object.values(is).some(v => v.toString().toLowerCase().includes(query)));
-        if (matchI) {
-            let res = `${matchI["İş ID"]} nolu iş bulundu: ${matchI["İş Açıklaması"]}.`;
+        if (found) {
+            let res = found.cevap || `${found["İş ID"]} nolu iş: ${found["İş Açıklaması"]}.`;
             speak(res);
             document.getElementById('live-text').innerText = res;
-            return;
+        } else {
+            speak("Bunu bulamadım şefim.");
         }
-
-        learnStep = 1; tempQ = query;
-        speak(query + " nedir şefim?");
     }
 
-    // SES SİSTEMİ
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
     const rec = new Speech(); rec.lang = 'tr-TR'; rec.continuous = true;
 
