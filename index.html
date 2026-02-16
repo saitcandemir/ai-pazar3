@@ -3,124 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saha Şefi V19 - Süper Tolerans</title>
+    <title>Saha Şefi V24 - Hata Geçirmez</title>
     <style>
-        body { background: #0b0e14; color: #e6edf3; font-family: sans-serif; text-align: center; padding: 10px; margin: 0; }
-        .wrapper { max-width: 600px; margin: 10px auto; background: #161b22; padding: 20px; border-radius: 25px; border: 2px solid #30363d; }
-        #text-query { width: 90%; padding: 15px; border-radius: 12px; border: 2px solid #30363d; background: #0d1117; color: #58a6ff; font-size: 1.2rem; margin-bottom: 15px; outline: none; }
-        #main-btn { width: 100%; padding: 45px 10px; font-size: 2.2rem; font-weight: 900; background: #238636; color: white; border: none; border-radius: 20px; cursor: pointer; }
+        body { background: #0b0e14; color: #e6edf3; font-family: sans-serif; text-align: center; padding: 10px; }
+        .wrapper { max-width: 600px; margin: 10px auto; background: #161b22; padding: 25px; border-radius: 30px; border: 2px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        #text-query { width: 90%; padding: 18px; border-radius: 15px; border: 2px solid #30363d; background: #0d1117; color: #58a6ff; font-size: 1.2rem; margin-bottom: 20px; text-align: center; outline: none; }
+        #main-btn { width: 100%; padding: 50px 10px; font-size: 2.2rem; font-weight: 900; background: #238636; color: white; border: none; border-radius: 20px; cursor: pointer; }
         #main-btn.active { background: #da3633; box-shadow: 0 0 30px #da3633; }
-        #status { margin: 10px 0; font-size: 1rem; color: #8b949e; }
-        #live-text { background: #0d1117; padding: 15px; border-radius: 12px; border: 1px solid #30363d; min-height: 50px; color: #d1d5db; }
-        #json-output { width: 100%; height: 100px; background: #000; color: #3fb950; font-family: monospace; font-size: 0.7rem; margin-top: 10px; display: none; }
+        #status { margin: 15px 0; font-size: 1.1rem; color: #fbbf24; font-weight: bold; }
+        #live-text { background: #0d1117; padding: 20px; border-radius: 15px; border: 1px solid #30363d; min-height: 50px; color: #d1d5db; line-height: 1.6; }
     </style>
 </head>
 <body>
 
 <div class="wrapper">
-    <h2 style="color:#f0f6fc;">Saha Şefi V19</h2>
-    <input type="text" id="text-query" placeholder="Buraya yazabilirsin şefim..." onkeypress="if(event.key==='Enter') searchEngine(this.value)">
+    <h2 style="color:#f0f6fc;">Saha Şefi V24 - HATA ÖNLEYİCİ</h2>
+    <input type="text" id="text-query" placeholder="Soru sor veya cevap yaz..." onkeypress="if(event.key==='Enter') searchEngine(this.value)">
     <button id="main-btn">🎙️ SİSTEMİ AÇ</button>
-    <div id="status">Veritabanı kontrol ediliyor...</div>
-    <div id="live-text">Komut bekliyorum.</div>
-    <textarea id="json-output" readonly></textarea>
+    <div id="status">Bağlantı Kuruluyor...</div>
+    <div id="live-text">Sistem hazır şefim. JSON hataları otomatik ayıklanıyor.</div>
 </div>
 
 <script>
-    const URL_M = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/main/muhabbet.js";
-    const URL_I = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/refs/heads/main/is_emirleri.json";
+    const GITHUB_TOKEN = "BURAYA_TOKEN_YAZILACAK"; 
+    const OWNER = "saitcandemir";
+    const REPO = "ai-pazar3";
+    const PATH_M = "muhabbet.js";
+    const PATH_I = "is_emirleri.json";
 
-    let database = [];
+    let db_muhabbet = [];
+    let db_isemri = [];
     let isListening = false;
-    let learningMode = false;
-    let lastQuery = "";
+    let learnStep = 0; 
+    let tempQ = "", tempA = "";
+    let mSha = ""; 
 
     async function setup() {
         try {
-            // Dosyaları teker teker dene, biri bozuksa diğeri çalışsın
-            const responses = await Promise.allSettled([
-                fetch(URL_M + "?t=" + Date.now()).then(r => r.text()),
-                fetch(URL_I + "?t=" + Date.now()).then(r => r.json())
-            ]);
+            const resM = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH_M}`, {
+                headers: { "Authorization": `token ${GITHUB_TOKEN}` }
+            });
+            const dataM = await resM.json();
+            mSha = dataM.sha;
+            
+            // HATA ÖNLEYİCİ REGEX BURADA:
+            const rawContent = decodeURIComponent(escape(atob(dataM.content)));
+            const jsonMatch = rawContent.match(/\[.*\]/s);
+            db_muhabbet = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
 
-            database = [];
+            const resI = await fetch(`https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${PATH_I}?t=` + Date.now());
+            db_isemri = await resI.json();
 
-            // Muhabbet dosyasını işle
-            if (responses[0].status === "fulfilled") {
-                try {
-                    const cleanM = responses[0].value.match(/\[.*\]/s);
-                    if (cleanM) database = [...database, ...JSON.parse(cleanM[0])];
-                } catch(e) { console.log("Muhabbet dosyası boş veya hatalı."); }
-            }
-
-            // İş emri dosyasını işle
-            if (responses[1].status === "fulfilled") {
-                database = [...database, ...responses[1].value];
-            }
-
-            document.getElementById('status').innerText = "Sistem Hazır! (" + database.length + " kayıt)";
-        } catch (e) {
-            document.getElementById('status').innerText = "Bağlantı sağlandı, veri bekleniyor.";
+            document.getElementById('status').innerText = "SİSTEM AKTİF (" + (db_muhabbet.length + db_isemri.length) + " Kayıt)";
+        } catch (e) { 
+            document.getElementById('status').innerText = "BAĞLANTI VEYA JSON HATASI!";
+            console.error("Detay:", e);
         }
+    }
+
+    async function saveMuhabbet(q, a) {
+        document.getElementById('status').innerText = "MUHABBET GÜNCELLENİYOR...";
+        const updatedMuhabbet = [{"soru": q, "cevap": a}, ...db_muhabbet];
+        const b64Content = btoa(unescape(encodeURIComponent(JSON.stringify(updatedMuhabbet, null, 2))));
+
+        try {
+            const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH_M}`, {
+                method: "PUT",
+                headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ message: "Saha Şefi Kayıt", content: b64Content, sha: mSha })
+            });
+            if (res.ok) {
+                const r = await res.json();
+                mSha = r.content.sha;
+                db_muhabbet = updatedMuhabbet;
+                speak("Hafızaya aldım şefim.");
+                document.getElementById('status').innerText = "KAYIT BAŞARILI";
+            }
+        } catch (e) { speak("GitHub yazma hatası!"); }
     }
 
     function searchEngine(input) {
         const query = input.toLowerCase().trim();
         if (!query) return;
 
-        if (learningMode) {
-            database.unshift({"soru": lastQuery, "cevap": input});
-            learningMode = false;
-            document.getElementById('json-output').style.display = "block";
-            document.getElementById('json-output').value = JSON.stringify(database.filter(x=>x.soru), null, 2);
-            speak("Öğrendim şefim!");
+        if (learnStep === 2) {
+            if (query.includes("evet") || query.includes("kaydet") || query.includes("tamam")) {
+                saveMuhabbet(tempQ, tempA);
+                learnStep = 0;
+            } else { speak("İptal."); learnStep = 0; }
             return;
         }
 
-        // AKILLI ARAMA: Her sütuna bak
-        const found = database.find(item => {
-            return Object.values(item).some(v => v.toString().toLowerCase().includes(query));
-        });
-
-        if (found) {
-            let res = found.cevap || `${found["İş ID"]} nolu iş: ${found["İş Açıklaması"]}. Kaynak: ${found["Kaynakçı Süresi (Dakika)"]} dk.`;
-            speak(res);
-            document.getElementById('live-text').innerText = res;
-        } else {
-            learningMode = true;
-            lastQuery = query;
-            speak(query + " nedir? Cevabı yaz şefim.");
+        if (learnStep === 1) {
+            tempA = input; learnStep = 2;
+            speak("Bu bilgiyi muhabbet dosyasına kaydedeyim mi?");
+            return;
         }
-    }
 
-    // SES SİSTEMİ
-    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const rec = new Speech();
-    rec.lang = 'tr-TR';
-    rec.continuous = true;
-
-    function speak(t) {
-        rec.stop();
-        const s = new SpeechSynthesisUtterance(t);
-        s.lang = 'tr-TR';
-        s.onend = () => { if(isListening) rec.start(); };
-        window.speechSynthesis.speak(s);
-    }
-
-    document.getElementById('main-btn').onclick = () => {
-        if(!isListening) {
-            rec.start(); isListening = true;
-            document.getElementById('main-btn').innerText = "DURDUR";
-            document.getElementById('main-btn').classList.add('active');
-        } else {
-            rec.stop(); isListening = false;
-            document.getElementById('main-btn').innerText = "SİSTEMİ AÇ";
-            document.getElementById('main-btn').classList.remove('active');
+        const matchM = db_muhabbet.find(m => query.includes(m.soru.toLowerCase()));
+        if (matchM) {
+            speak(matchM.cevap);
+            document.getElementById('live-text').innerText = matchM.cevap;
+            return;
         }
-    };
 
-    rec.onresult = (e) => searchEngine(e.results[e.results.length-1][0].transcript);
-    window.onload = setup;
-</script>
-</body>
-</html>
+        const matchI = db_isemri.find(is => Object.values(is).some(v => v.toString().toLowerCase().includes(query)));
+        if (match
