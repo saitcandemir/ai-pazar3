@@ -3,144 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>23 Ai Pazar Gemini Canlı</title>
+    <title>Saha Şefi V14 - GitHub AI</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 20px; }
-        .container { background: #2d2d2d; display: inline-block; padding: 30px; border-radius: 25px; border: 2px solid #4285f4; max-width: 500px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .input-group { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
-        input[type="text"] { padding: 12px; border-radius: 10px; border: none; width: 70%; font-size: 16px; background: #eee; color: #333; }
-        button { cursor: pointer; transition: 0.3s; border: none; border-radius: 10px; font-weight: bold; }
-        .send-btn { background: #34a853; color: white; padding: 10px 20px; }
-        .mic-btn { background: #4285f4; color: white; width: 60px; height: 60px; border-radius: 50%; font-size: 25px; margin-bottom: 10px; }
-        #status { color: #f1c40f; margin: 15px 0; font-size: 14px; min-height: 20px; font-weight: bold; }
-        #aiResponse { background: #3d3d3d; padding: 20px; border-radius: 15px; margin-top: 20px; text-align: left; line-height: 1.5; min-height: 50px; border-left: 5px solid #4285f4; color: #fff; }
-        #errorLog { margin-top: 15px; background: #601a1a; color: #ff9999; padding: 10px; border-radius: 8px; font-size: 12px; display: none; text-align: left; border: 1px solid red; }
+        body { background: #0d1117; color: #c9d1d9; font-family: sans-serif; text-align: center; padding: 10px; margin: 0; }
+        .wrapper { max-width: 600px; margin: 20px auto; background: #161b22; padding: 25px; border-radius: 30px; border: 2px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        /* DEV BAŞLAT BUTONU */
+        #main-btn { 
+            width: 100%; padding: 60px 10px; font-size: 2.5rem; font-weight: 900; 
+            background: #238636; color: white; border: none; border-radius: 20px; 
+            cursor: pointer; transition: 0.3s; margin-bottom: 15px;
+        }
+        #main-btn.active { background: #da3633; box-shadow: 0 0 40px #da3633; }
+        
+        #status-bar { margin: 15px 0; font-size: 1.3rem; font-weight: bold; color: #58a6ff; min-height: 35px; }
+        #live-text { color: #8b949e; font-size: 1.1rem; background: #0d1117; padding: 15px; border-radius: 15px; border: 1px inset #30363d; margin-bottom: 20px; }
+        
+        /* GITHUB ÇIKTI ALANI */
+        #output-container { background: #010409; padding: 15px; border-radius: 15px; border: 1px solid #30363d; text-align: left; display: none; }
+        #json-box { width: 100%; height: 120px; background: transparent; color: #7ee787; border: none; font-family: monospace; font-size: 0.8rem; resize: none; }
+        .copy-btn { background: #30363d; color: white; border: 1px solid #8b949e; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.7rem; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>🚀 Ai Pazar Gemini</h1>
-    <div id="status">Konuşmak için mikrofona bas veya mesaj yaz</div>
+<div class="wrapper">
+    <h2 style="color:#f0f6fc; margin-bottom:5px;">AI-PAZAR3 KOMUTA</h2>
+    <div id="status-bar">Sistem Hazırlanıyor...</div>
     
-    <button id="startBtn" class="mic-btn" title="Konuşmak için tıkla">🎙️</button>
+    <button id="main-btn">🎙️ BAŞLAT</button>
+    
+    <div id="live-text">Duyulan: -</div>
 
-    <div class="input-group">
-        <input type="text" id="userInput" placeholder="Mesajınızı yazın...">
-        <button id="sendBtn" class="send-btn">Gönder</button>
+    <div id="output-container">
+        <div style="font-size: 0.7rem; color: #8b949e; margin-bottom: 5px;">Yeni Öğrenilen (Kopyala GitHub'a Yapıştır):</div>
+        <textarea id="json-box" readonly></textarea>
+        <button class="copy-btn" onclick="kopyala()">KODU KOPYALA</button>
     </div>
-
-    <div id="aiResponse">Gemini'nin cevabı burada görünecek...</div>
-    <div id="errorLog"></div>
 </div>
 
 <script>
-    // DİKKAT: API Anahtarını aşağıdaki tırnakların (" ") arasına yapıştır!
-    var API_KEY = "AIzaSyAxmSqsLPuVSJx6bO5_zqTgHKg-lREllY4"; 
+    // --- GITHUB LİNKLERİN ---
+    const MUHABBET_URL = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/main/muhabbet.js";
+    const IS_EMIRLERI_URL = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/refs/heads/main/is_emirleri.json";
 
-    var startBtn = document.getElementById('startBtn');
-    var sendBtn = document.getElementById('sendBtn');
-    var userInput = document.getElementById('userInput');
-    var statusText = document.getElementById('status');
-    var aiResponse = document.getElementById('aiResponse');
-    var errorLog = document.getElementById('errorLog');
+    let muhabbetDB = [];
+    let isEmirleriDB = [];
+    let isListening = false;
+    let learningMode = false;
+    let lastUnknownQuestion = "";
 
-    function showLog(msg) {
-        errorLog.style.display = "block";
-        errorLog.innerText = "Sistem Notu: " + msg;
-    }
+    const btn = document.getElementById('main-btn');
+    const status = document.getElementById('status-bar');
+    const liveText = document.getElementById('live-text');
+    const jsonBox = document.getElementById('json-box');
+    const outputContainer = document.getElementById('output-container');
 
-    // 1. SES TANIMA KONTROLÜ
-    var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-        var recognition = new SpeechRecognition();
-        recognition.lang = 'tr-TR';
-
-        startBtn.onclick = function() {
-            errorLog.style.display = "none";
-            try {
-                recognition.start();
-                statusText.innerText = "Seni dinliyorum... Konuşabilirsin.";
-            } catch(e) { 
-                showLog("Mikrofon hatası: " + e.message); 
-            }
-        };
-
-        recognition.onresult = function(event) {
-            var text = event.results[0][0].transcript;
-            userInput.value = text;
-            askGemini(text);
-        };
-
-        recognition.onerror = function(event) { 
-            statusText.innerText = "Mikrofon kapandı."; 
-            showLog("Mikrofon Hatası: " + event.error);
-        };
-    } else {
-        startBtn.style.display = "none";
-        statusText.innerText = "Tarayıcı mikrofonu desteklemiyor.";
-    }
-
-    // 2. GÖNDERME İŞLEMLERİ
-    sendBtn.onclick = function() { 
-        var val = userInput.value.trim();
-        if (val !== "") { askGemini(val); } 
-    };
-
-    userInput.onkeypress = function(e) { 
-        if (e.key === "Enter") {
-            var val = userInput.value.trim();
-            if (val !== "") { askGemini(val); }
-        }
-    };
-
-    // 3. GEMINI API ÇAĞRISI (EN GÜVENLİ YAZIM ŞEKLİ)
-    async function askGemini(soru) {
-        statusText.innerText = "Gemini yanıt hazırlıyor...";
-        aiResponse.innerText = "Düşünüyor...";
-        errorLog.style.display = "none";
-
-        var apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
-        
-        var requestBody = {
-            contents: [{
-                parts: [{ text: soru }]
-            }]
-        };
-
+    // 1. VERİLERİ ÇEK
+    async function init() {
         try {
-            var response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(requestBody)
-            });
-
-            var data = await response.json();
-
-            if (data.error) {
-                showLog("API Hatası: " + data.error.message);
-                aiResponse.innerText = "Hata oluştu, sistem notuna bak.";
-                return;
-            }
-
-            if (data.candidates && data.candidates[0]) {
-                var reply = data.candidates[0].content.parts[0].text;
-                aiResponse.innerText = reply;
-                statusText.innerText = "Yanıt geldi.";
-
-                // Sesli Okuma
-                var utter = new SpeechSynthesisUtterance(reply);
-                utter.lang = 'tr-TR';
-                window.speechSynthesis.speak(utter);
-            } else {
-                showLog("API boş yanıt döndü.");
-            }
-        } catch (err) {
-            showLog("Bağlantı Hatası: " + err.message);
-            aiResponse.innerText = "Bağlantı kurulamadı.";
+            const [res1, res2] = await Promise.all([
+                fetch(MUHABBET_URL + "?v=" + Date.now()),
+                fetch(IS_EMIRLERI_URL + "?v=" + Date.now())
+            ]);
+            
+            // Muhabbet.js içeriğini temizle ve parse et (içinde sadece [] olduğunu varsayıyorum)
+            const muhabbetRaw = await res1.text();
+            muhabbetDB = JSON.parse(muhabbetRaw.replace(/[^\[]*(\[.*\])[^\]]*/s, '$1'));
+            
+            isEmirleriDB = await res2.json();
+            
+            status.innerText = "Sistem Çevrimiçi Şefim!";
+        } catch (e) {
+            status.innerText = "GitHub Bağlantı Bekleniyor...";
+            muhabbetDB = [];
         }
     }
-</script>
 
+    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new Speech();
+    recognition.lang = 'tr-TR';
+    recognition.continuous = true;
+
+    function speak(text) {
+        recognition.stop();
+        const msg = new SpeechSynthesisUtterance(text);
+        msg.lang = 'tr-TR';
+        msg.onend = () => { if (isListening) recognition.start(); };
+        window.speechSynthesis.speak(msg);
+    }
+
+    btn.onclick = () => {
+        if (!isListening) {
+            recognition.start();
+            isListening = true;
+            btn.innerText = "STOP"; btn.classList.add('active');
+            status.innerText = "Dinliyorum...";
+            speak("Bağlantı kuruldu şefim, dinlemedeyim.");
+        } else {
+            recognition.stop();
+            isListening = false;
+            btn.innerText = "BAŞLAT"; btn.classList.remove('active');
+        }
+    };
+
+    recognition.onresult = (event) => {
+        const text = event.results[event.results.length - 1][0].transcript.toLowerCase().trim();
+        liveText.innerText = "Duyulan: " + text;
+
+        // ÖĞRENME MODU ONAYI VE KAYIT
+        if (learningMode) {
+            muhabbetDB.unshift({"soru": lastUnknownQuestion, "cevap": text});
+            learningMode = false;
+            status.innerText = "Kayıt Hazır!";
+            jsonBox.value = JSON.stringify(muhabbetDB, null, 2);
+            outputContainer.style.display = "block";
+            speak("Anlaşıldı şefim. " + lastUnknownQuestion + " için " + text + " cevabını hafızaya aldım. GitHub'a eklemen için kodu hazırladım.");
+            return;
+        }
+
+        // 1. İŞ EMİRLERİ SORGUSU (ID veya İsimle)
+        const isEmri = isEmirleriDB.find(is => text.includes(is.id.toString()) || text.includes(is.baslik?.toLowerCase()));
+        if (isEmri) {
+            speak(isEmri.id + " numaralı iş emri: " + isEmri.durum + ". Detay: " + isEmri.aciklama);
+            return;
+        }
+
+        // 2. MUHABBET SORGUSU
+        const match = muhabbetDB.find(i => text.includes(i.soru.toLowerCase()));
+        if (match) {
+            speak(match.cevap);
+        } else {
+            // BİLMİYORSA SOR VE ÖĞREN
+            learningMode = true;
+            lastUnknownQuestion = text;
+            status.innerText = "ÖĞRENİYORUM...";
+            speak("Bunu henüz bilmiyorum şefim. " + text + " denilince ne cevap vereyim?");
+        }
+    };
+
+    function kopyala() {
+        jsonBox.select();
+        document.execCommand('copy');
+        alert("JSON Kopyalandı! Şimdi GitHub'da muhabbet.js dosyasını açıp içine yapıştır ve kaydet.");
+    }
+
+    window.onload = init;
+</script>
 </body>
 </html>
