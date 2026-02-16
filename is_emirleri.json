@@ -1,12 +1,5 @@
 [
-        {
-            "İş ID": "işİD",
-            "İş Açıklaması": "ISIN_ACIKLAMASI",
-            "Kaynakçı Süresi (Dakika)": "20",
-            "Tornacı Süresi (Dakika)": "40",
-            "Montajcı Süresi (Dakika)": "60",
-            "sevkıyat Süresi (Dakika)": "60"
-        },
+   
         {
             "İş ID": "151.01.1601",
             "İş Açıklaması": "ESKİ TİP PLATFORM MONTAJİ",
@@ -4420,3 +4413,4 @@
             "sevkıyat Süresi (Dakika)": "60"
         }
     ]
+
