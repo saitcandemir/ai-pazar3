@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saha Şefi V28 - Atomik Kurtarma</title>
+    <title>Saha Şefi V29 - Hızlı Kayıt</title>
     <style>
         :root { --bg: #0b0e14; --panel: #161b22; --border: #30363d; --text: #e6edf3; --accent: #238636; }
         body { background: var(--bg); color: var(--text); font-family: sans-serif; text-align: center; padding: 10px; margin: 0; }
@@ -18,11 +18,11 @@
 <body>
 
 <div class="wrapper">
-    <h2 style="color:#f0f6fc;">SAHA ŞEFİ V28 - ATOMİK</h2>
+    <h2 style="color:#f0f6fc;">SAHA ŞEFİ V29</h2>
     <input type="text" id="text-query" placeholder="Soru veya İş ID..." onkeypress="if(event.key==='Enter') searchEngine(this.value)">
     <button id="main-btn">🎙️ SİSTEMİ AÇ</button>
     <div id="status">Bağlanıyor...</div>
-    <div id="live-text">Hatalı satırlar cımbızla ayıklanıyor şefim.</div>
+    <div id="live-text">Hızlı öğrenme modu aktif. Soru sorunca bilmezse cevabı isteyecek ve anında kaydedecek.</div>
 </div>
 
 <script>
@@ -34,60 +34,64 @@
 
     let db_full = [];
     let isListening = false;
+    let learnMode = false;
+    let lastQ = "";
     let mSha = ""; 
-
-    // CIMBIZ METODU: JSON bozuk olsa bile süslü parantez bloklarını ayıklar
-    function atomicParse(rawText) {
-        const foundItems = [];
-        // Süslü parantez içindeki her şeyi bulur: { ... }
-        const blocks = rawText.match(/\{[^{}]+\}/g);
-        
-        if (blocks) {
-            blocks.forEach(block => {
-                try {
-                    // Bloğu temizle ve JSON'a çevir
-                    let cleanBlock = block.replace(/[\r\n\t]/g, "").trim();
-                    const item = JSON.parse(cleanBlock);
-                    
-                    // Eğer geçerli bir veri bloğuysa (ID veya Soru varsa) listeye ekle
-                    if (item["İş ID"] || item["soru"]) {
-                        foundItems.push(item);
-                    }
-                } catch (e) {
-                    // Bozuk olan bloğu sessizce atla
-                    console.log("Bir blok atlandı.");
-                }
-            });
-        }
-        return foundItems;
-    }
 
     async function setup() {
         try {
-            // Muhabbet çek ve ayıkla
             const resM = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH_M}`, {
                 headers: { "Authorization": `token ${GITHUB_TOKEN}` }
             });
             const dataM = await resM.json();
             mSha = dataM.sha;
             const rawM = decodeURIComponent(escape(atob(dataM.content)));
-            const contentM = atomicParse(rawM);
+            
+            // Regex ile garantili çekme
+            const contentM = JSON.parse(rawM.match(/\[.*\]/s)[0]);
 
-            // İş emirlerini çek ve ayıkla
             const resI = await fetch(`https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${PATH_I}?t=` + Date.now());
-            const rawI = await resI.text();
-            const contentI = atomicParse(rawI);
+            const contentI = await resI.json();
 
             db_full = [...contentM, ...contentI];
-            document.getElementById('status').innerText = "✅ " + db_full.length + " VERİ KURTARILDI";
+            document.getElementById('status').innerText = "✅ SİSTEM HAZIR (" + db_full.length + " VERİ)";
         } catch (e) { 
-            document.getElementById('status').innerText = "❌ BAĞLANTI HATASI!";
+            document.getElementById('status').innerText = "❌ VERİ OKUMA HATASI!";
         }
+    }
+
+    async function quickSave(q, a) {
+        document.getElementById('status').innerText = "💾 HAFIZAYA YAZILIYOR...";
+        // Sadece muhabbet kısmını güncelle
+        const muhabbetPart = db_full.filter(x => x.soru);
+        const updatedM = [{"soru": q, "cevap": a}, ...muhabbetPart];
+        const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(updatedM, null, 2))));
+
+        try {
+            const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH_M}`, {
+                method: "PUT",
+                headers: { "Authorization": `token ${GITHUB_TOKEN}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ message: "Saha Şefi Hızlı Kayıt", content: b64, sha: mSha })
+            });
+            if (res.ok) {
+                const r = await res.json();
+                mSha = r.content.sha;
+                db_full = [updatedM[0], ...db_full];
+                speak("Öğrendim şefim, hafızaya attım.");
+                document.getElementById('status').innerText = "✅ KAYDEDİLDİ";
+                learnMode = false;
+            }
+        } catch (e) { speak("Yazarken hata oluştu."); }
     }
 
     function searchEngine(input) {
         const query = input.toLowerCase().trim();
-        if (!query || db_full.length === 0) return;
+        if (!query) return;
+
+        if (learnMode) {
+            quickSave(lastQ, input);
+            return;
+        }
 
         const found = db_full.find(item => 
             Object.values(item).some(v => v && v.toString().toLowerCase().includes(query))
@@ -98,7 +102,9 @@
             speak(res);
             document.getElementById('live-text').innerText = res;
         } else {
-            speak("Sonuç yok şefim.");
+            learnMode = true;
+            lastQ = query;
+            speak(query + " nedir şefim? Cevabını söyle hemen kaydedeyim.");
         }
     }
 
