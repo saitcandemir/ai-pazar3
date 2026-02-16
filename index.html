@@ -1,63 +1,58 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saha Şefi V15 - Akıllı Sorgu</title>
+    <title>Saha Şefi V17 - GitHub Entegre</title>
     <style>
         body { background: #0d1117; color: #c9d1d9; font-family: sans-serif; text-align: center; padding: 10px; margin: 0; }
-        .wrapper { max-width: 600px; margin: 15px auto; background: #161b22; padding: 20px; border-radius: 30px; border: 2px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .wrapper { max-width: 600px; margin: 15px auto; background: #161b22; padding: 25px; border-radius: 30px; border: 2px solid #30363d; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
-        /* ARAMA KUTUSU STİLİ */
-        .search-container { margin-bottom: 20px; position: relative; }
+        .search-container { margin-bottom: 20px; }
         #text-query { 
-            width: 85%; padding: 15px; border-radius: 15px; border: 2px solid #30363d; 
-            background: #0d1117; color: white; font-size: 1.1rem; outline: none; transition: 0.3s;
+            width: 90%; padding: 18px; border-radius: 20px; border: 2px solid #30363d; 
+            background: #0d1117; color: white; font-size: 1.2rem; outline: none; transition: 0.3s;
         }
-        #text-query:focus { border-color: #58a6ff; box-shadow: 0 0 10px #58a6ff; }
+        #text-query:focus { border-color: #58a6ff; }
 
-        /* DEV BAŞLAT BUTONU */
         #main-btn { 
-            width: 100%; padding: 40px 10px; font-size: 2rem; font-weight: 900; 
-            background: #238636; color: white; border: none; border-radius: 20px; 
-            cursor: pointer; margin-bottom: 15px;
+            width: 100%; padding: 50px 10px; font-size: 2.2rem; font-weight: 900; 
+            background: #238636; color: white; border: none; border-radius: 25px; 
+            cursor: pointer; margin-bottom: 15px; text-transform: uppercase;
         }
-        #main-btn.active { background: #da3633; box-shadow: 0 0 30px #da3633; }
+        #main-btn.active { background: #da3633; box-shadow: 0 0 40px #da3633; }
         
-        #status-bar { margin: 10px 0; font-size: 1.2rem; font-weight: bold; color: #58a6ff; }
-        #live-text { color: #8b949e; font-size: 1rem; background: #0d1117; padding: 12px; border-radius: 12px; border: 1px inset #30363d; min-height: 20px; margin-bottom: 15px; }
+        #status-bar { margin: 15px 0; font-size: 1.3rem; font-weight: bold; color: #58a6ff; min-height: 30px; }
+        #live-text { color: #8b949e; font-size: 1.1rem; background: #0d1117; padding: 15px; border-radius: 15px; border: 1px inset #30363d; min-height: 30px; margin-bottom: 15px; line-height: 1.5; }
         
-        /* ÇIKTI ALANI */
-        #output-container { background: #010409; padding: 15px; border-radius: 15px; display: none; text-align: left; }
-        #json-box { width: 100%; height: 100px; background: transparent; color: #7ee787; border: none; font-family: monospace; font-size: 0.7rem; resize: none; }
+        #json-box { width: 100%; height: 120px; background: #010409; color: #7ee787; border: 1px solid #30363d; border-radius: 10px; font-family: monospace; font-size: 0.7rem; display: none; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="wrapper">
-    <h2 style="color:#f0f6fc; margin-bottom:15px;">GERBER SL100 KOMUTA</h2>
+    <h1 style="color:#f0f6fc; margin-bottom:20px;">AI-PAZAR3 KOMUTA</h1>
 
     <div class="search-container">
-        <input type="text" id="text-query" placeholder="Parça, ID veya Soru yazın..." onkeypress="klavyeSorgu(event)">
+        <input type="text" id="text-query" placeholder="İş ID veya Soru yazın..." onkeypress="klavyeSorgu(event)">
     </div>
     
-    <div id="status-bar">Sistem Hazır!</div>
+    <div id="status-bar">Veritabanı Bekleniyor...</div>
     
     <button id="main-btn">🎙️ SESLİ KOMUT</button>
     
-    <div id="live-text">Sonuç: -</div>
+    <div id="live-text">Sistem hazır şefim.</div>
 
-    <div id="output-container">
-        <div style="font-size: 0.7rem; color: #8b949e;">Öğrenilen Veri:</div>
-        <textarea id="json-box" readonly></textarea>
-    </div>
+    <textarea id="json-box" readonly onclick="kopyala()"></textarea>
 </div>
 
 <script>
+    // GITHUB DOSYA LİNKLERİN
     const MUHABBET_URL = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/main/muhabbet.js";
     const IS_EMIRLERI_URL = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/refs/heads/main/is_emirleri.json";
 
-    let combinedDB = [];
+    let db_muhabbet = [];
+    let db_isemri = [];
     let isListening = false;
     let learningMode = false;
     let lastQuestion = "";
@@ -66,107 +61,6 @@
     const status = document.getElementById('status-bar');
     const liveText = document.getElementById('live-text');
     const textQuery = document.getElementById('text-query');
+    const jsonBox = document.getElementById('json-box');
 
-    // VERİLERİ ÇEK VE BİRLEŞTİR
-    async function init() {
-        try {
-            const [res1, res2] = await Promise.all([
-                fetch(MUHABBET_URL + "?v=" + Date.now()),
-                fetch(IS_EMIRLERI_URL + "?v=" + Date.now())
-            ]);
-            const muhabbetText = await res1.text();
-            const mData = JSON.parse(muhabbetText.replace(/[^\[]*(\[.*\])[^\]]*/s, '$1'));
-            const iData = await res2.json();
-            
-            // İş emirlerini muhabbet formatına çevirip birleştiriyoruz
-            const formattedIs = iData.map(item => ({
-                soru: item.id.toString(), 
-                cevap: `${item.baslik}: ${item.durum}. ${item.aciklama}`
-            }));
-            
-            combinedDB = [...mData, ...formattedIs];
-            status.innerText = "Veritabanı Bağlandı!";
-        } catch (e) {
-            status.innerText = "Bağlantı Hatası!";
-        }
-    }
-
-    // KLAVYE İLE SORGULAMA
-    function klavyeSorgu(e) {
-        if (e.key === 'Enter') {
-            processQuery(textQuery.value);
-            textQuery.value = ""; // Kutuyu temizle
-        }
-    }
-
-    // ORTAK İŞLEME MERKEZİ
-    function processQuery(val) {
-        const query = val.toLowerCase().trim();
-        if (!query) return;
-
-        liveText.innerText = "Sorgu: " + query;
-
-        if (learningMode) {
-            saveLearning(query);
-            return;
-        }
-
-        const match = combinedDB.find(i => query.includes(i.soru.toLowerCase()) || i.soru.toLowerCase() === query);
-        
-        if (match) {
-            speak(match.cevap);
-            liveText.innerText = "Cevap: " + match.cevap;
-        } else {
-            learningMode = true;
-            lastQuestion = query;
-            status.innerText = "ÖĞRENME MODU";
-            speak(query + " nedir şefim? Cevabını yazın veya söyleyin.");
-        }
-    }
-
-    // ÖĞRENİLENİ KAYDET
-    function saveLearning(answer) {
-        combinedDB.unshift({soru: lastQuestion, cevap: answer});
-        learningMode = false;
-        status.innerText = "Öğrenildi!";
-        document.getElementById('json-box').value = JSON.stringify(combinedDB, null, 2);
-        document.getElementById('output-container').style.display = "block";
-        speak("Anlaşıldı, kaydı hazırladım şefim.");
-    }
-
-    // SES MOTORU
-    const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new Speech();
-    recognition.lang = 'tr-TR';
-    recognition.continuous = true;
-
-    function speak(text) {
-        recognition.stop();
-        const msg = new SpeechSynthesisUtterance(text);
-        msg.lang = 'tr-TR';
-        msg.onend = () => { if (isListening) recognition.start(); };
-        window.speechSynthesis.speak(msg);
-    }
-
-    btn.onclick = () => {
-        if (!isListening) {
-            recognition.start();
-            isListening = true;
-            btn.innerText = "DURDUR"; btn.classList.add('active');
-            status.innerText = "Dinliyorum...";
-        } else {
-            recognition.stop();
-            isListening = false;
-            btn.innerText = "SESLİ KOMUT"; btn.classList.remove('active');
-        }
-    };
-
-    recognition.onresult = (event) => {
-        const text = event.results[event.results.length - 1][0].transcript;
-        processQuery(text);
-    };
-
-    window.onload = init;
-</script>
-</body>
-</html>
+    // 1. VERİLERİ
