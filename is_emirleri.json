@@ -4360,12 +4360,7 @@
             "Montajcı Süresi (Dakika)": "60",
             "sevkıyat Süresi (Dakika)": "60"
         },
-        {
-            "Kaynakçı Süresi (Dakika)": "20",
-            "Tornacı Süresi (Dakika)": "40",
-            "Montajcı Süresi (Dakika)": "60",
-            "sevkıyat Süresi (Dakika)": "60"
-        },
+
         {
             "İş ID": "152.50.1303",
             "İş Açıklaması": "APM 5A EK MASA 302",
@@ -4413,4 +4408,5 @@
             "sevkıyat Süresi (Dakika)": "60"
         }
     ]
+
 
