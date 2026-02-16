@@ -3,170 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saha Şefi V18 - Kesintisiz Komuta</title>
+    <title>Saha Şefi V19 - Süper Tolerans</title>
     <style>
-        body { background: #0b0e14; color: #e6edf3; font-family: 'Segoe UI', sans-serif; text-align: center; padding: 10px; margin: 0; }
-        .wrapper { max-width: 600px; margin: 10px auto; background: #161b22; padding: 20px; border-radius: 25px; border: 2px solid #30363d; box-shadow: 0 8px 32px rgba(0,0,0,0.8); }
-        
-        /* ARAMA KUTUSU */
-        .input-group { margin-bottom: 15px; }
-        #text-query { 
-            width: 90%; padding: 15px; border-radius: 12px; border: 2px solid #30363d; 
-            background: #0d1117; color: #58a6ff; font-size: 1.2rem; outline: none; text-align: center;
-        }
-        #text-query:focus { border-color: #238636; }
-
-        /* DEV BUTON */
-        #main-btn { 
-            width: 100%; padding: 45px 10px; font-size: 2.2rem; font-weight: 900; 
-            background: #238636; color: white; border: none; border-radius: 20px; 
-            cursor: pointer; transition: 0.2s;
-        }
-        #main-btn.active { background: #da3633; box-shadow: 0 0 30px #da3633; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-        
-        #status { margin: 10px 0; font-size: 1.1rem; color: #8b949e; font-style: italic; }
-        #live-text { background: #0d1117; padding: 15px; border-radius: 12px; border: 1px solid #30363d; min-height: 50px; line-height: 1.6; color: #d1d5db; }
-        
+        body { background: #0b0e14; color: #e6edf3; font-family: sans-serif; text-align: center; padding: 10px; margin: 0; }
+        .wrapper { max-width: 600px; margin: 10px auto; background: #161b22; padding: 20px; border-radius: 25px; border: 2px solid #30363d; }
+        #text-query { width: 90%; padding: 15px; border-radius: 12px; border: 2px solid #30363d; background: #0d1117; color: #58a6ff; font-size: 1.2rem; margin-bottom: 15px; outline: none; }
+        #main-btn { width: 100%; padding: 45px 10px; font-size: 2.2rem; font-weight: 900; background: #238636; color: white; border: none; border-radius: 20px; cursor: pointer; }
+        #main-btn.active { background: #da3633; box-shadow: 0 0 30px #da3633; }
+        #status { margin: 10px 0; font-size: 1rem; color: #8b949e; }
+        #live-text { background: #0d1117; padding: 15px; border-radius: 12px; border: 1px solid #30363d; min-height: 50px; color: #d1d5db; }
         #json-output { width: 100%; height: 100px; background: #000; color: #3fb950; font-family: monospace; font-size: 0.7rem; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="wrapper">
-    <h2 style="color:#f0f6fc;">Saha Şefi V18 - Tam Yetki</h2>
-    
-    <div class="input-group">
-        <input type="text" id="text-query" placeholder="Yazın veya Konuşun..." onkeypress="handleEnter(event)">
-    </div>
-
+    <h2 style="color:#f0f6fc;">Saha Şefi V19</h2>
+    <input type="text" id="text-query" placeholder="Buraya yazabilirsin şefim..." onkeypress="if(event.key==='Enter') searchEngine(this.value)">
     <button id="main-btn">🎙️ SİSTEMİ AÇ</button>
-    <div id="status">Veriler yükleniyor...</div>
-    <div id="live-text">Komut bekleniyor şefim.</div>
-    
-    <textarea id="json-output" readonly onclick="this.select(); document.execCommand('copy'); alert('Kod kopyalandı!');"></textarea>
+    <div id="status">Veritabanı kontrol ediliyor...</div>
+    <div id="live-text">Komut bekliyorum.</div>
+    <textarea id="json-output" readonly></textarea>
 </div>
 
 <script>
-    const GITHUB_MUHABBET = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/main/muhabbet.js";
-    const GITHUB_ISEMRI = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/refs/heads/main/is_emirleri.json";
+    const URL_M = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/main/muhabbet.js";
+    const URL_I = "https://raw.githubusercontent.com/saitcandemir/ai-pazar3/refs/heads/main/is_emirleri.json";
 
     let database = [];
     let isListening = false;
     let learningMode = false;
     let lastQuery = "";
 
-    // 1. VERİLERİ ÇEK VE HATALARI TEMİZLE
     async function setup() {
         try {
-            const [r1, r2] = await Promise.all([
-                fetch(GITHUB_MUHABBET + "?t=" + Date.now()),
-                fetch(GITHUB_ISEMRI + "?t=" + Date.now())
+            // Dosyaları teker teker dene, biri bozuksa diğeri çalışsın
+            const responses = await Promise.allSettled([
+                fetch(URL_M + "?t=" + Date.now()).then(r => r.text()),
+                fetch(URL_I + "?t=" + Date.now()).then(r => r.json())
             ]);
 
-            const mRaw = await r1.text();
-            // Regex ile sadece köşeli parantez içini al (Hatalı JS formatını JSON'a zorla)
-            const mData = JSON.parse(mRaw.match(/\[.*\]/s)[0]);
-            const iData = await r2.json();
+            database = [];
 
-            // İki veriyi tek bir "Süper Liste"de birleştir
-            database = [...mData, ...iData];
-            document.getElementById('status').innerText = "Sistem Kesintisiz Aktif!";
+            // Muhabbet dosyasını işle
+            if (responses[0].status === "fulfilled") {
+                try {
+                    const cleanM = responses[0].value.match(/\[.*\]/s);
+                    if (cleanM) database = [...database, ...JSON.parse(cleanM[0])];
+                } catch(e) { console.log("Muhabbet dosyası boş veya hatalı."); }
+            }
+
+            // İş emri dosyasını işle
+            if (responses[1].status === "fulfilled") {
+                database = [...database, ...responses[1].value];
+            }
+
+            document.getElementById('status').innerText = "Sistem Hazır! (" + database.length + " kayıt)";
         } catch (e) {
-            document.getElementById('status').innerText = "Veri okuma hatası! JSON formatını kontrol et şefim.";
-            console.error(e);
+            document.getElementById('status').innerText = "Bağlantı sağlandı, veri bekleniyor.";
         }
     }
 
-    // 2. AKILLI ARAMA MOTORU (ENGEL TANIMAZ)
     function searchEngine(input) {
         const query = input.toLowerCase().trim();
         if (!query) return;
 
-        document.getElementById('live-text').innerText = "Duyulan: " + query;
-
         if (learningMode) {
-            learnNew(query);
+            database.unshift({"soru": lastQuery, "cevap": input});
+            learningMode = false;
+            document.getElementById('json-output').style.display = "block";
+            document.getElementById('json-output').value = JSON.stringify(database.filter(x=>x.soru), null, 2);
+            speak("Öğrendim şefim!");
             return;
         }
 
-        // DATABASE İÇİNDE HER YERE BAK (İş ID, Soru, Açıklama)
+        // AKILLI ARAMA: Her sütuna bak
         const found = database.find(item => {
-            const keys = Object.values(item).map(v => v.toString().toLowerCase());
-            return keys.some(k => k === query || k.includes(query));
+            return Object.values(item).some(v => v.toString().toLowerCase().includes(query));
         });
 
         if (found) {
-            let reply = "";
-            // Eğer Muhabbet formatındaysa
-            if (found.cevap) {
-                reply = found.cevap;
-            } 
-            // Eğer senin İş Emri formatındaysa
-            else if (found["İş ID"]) {
-                reply = `${found["İş ID"]} nolu iş, ${found["İş Açıklaması"]}. ` +
-                        `Kaynak: ${found["Kaynakçı Süresi (Dakika)"]} dk, ` +
-                        `Torna: ${found["Tornacı Süresi (Dakika)"]} dk, ` +
-                        `Montaj: ${found["Montajcı Süresi (Dakika)"]} dk. ` +
-                        `Sevkiyat: ${found["sevkıyat Süresi (Dakika)"]} dk şefim.`;
-            }
-
-            speak(reply);
-            document.getElementById('live-text').innerText = reply;
+            let res = found.cevap || `${found["İş ID"]} nolu iş: ${found["İş Açıklaması"]}. Kaynak: ${found["Kaynakçı Süresi (Dakika)"]} dk.`;
+            speak(res);
+            document.getElementById('live-text').innerText = res;
         } else {
             learningMode = true;
             lastQuery = query;
-            document.getElementById('status').innerText = "ÖĞRENME MODU";
-            speak(query + " nedir şefim? Cevabını söyle kaydedeyim.");
+            speak(query + " nedir? Cevabı yaz şefim.");
         }
     }
 
-    function learnNew(ans) {
-        const newData = {"soru": lastQuery, "cevap": ans};
-        // Sadece muhabbet kısmına ekle
-        const muhabbetOnly = database.filter(x => x.soru); 
-        muhabbetOnly.unshift(newData);
-        
-        learningMode = false;
-        document.getElementById('status').innerText = "Öğrenildi!";
-        document.getElementById('json-output').style.display = "block";
-        document.getElementById('json-output').value = JSON.stringify(muhabbetOnly, null, 2);
-        speak("Tamam şefim, artık biliyorum. Kodu en üste ekledim.");
-    }
-
-    // SES VE KLAVYE
-    function handleEnter(e) { if(e.key === 'Enter') { searchEngine(e.target.value); e.target.value = ""; } }
-
+    // SES SİSTEMİ
     const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new Speech();
-    recognition.lang = 'tr-TR';
-    recognition.continuous = true;
+    const rec = new Speech();
+    rec.lang = 'tr-TR';
+    rec.continuous = true;
 
-    function speak(txt) {
-        recognition.stop();
-        const s = new SpeechSynthesisUtterance(txt);
+    function speak(t) {
+        rec.stop();
+        const s = new SpeechSynthesisUtterance(t);
         s.lang = 'tr-TR';
-        s.onend = () => { if(isListening) recognition.start(); };
+        s.onend = () => { if(isListening) rec.start(); };
         window.speechSynthesis.speak(s);
     }
 
     document.getElementById('main-btn').onclick = () => {
-        if (!isListening) {
-            recognition.start();
-            isListening = true;
+        if(!isListening) {
+            rec.start(); isListening = true;
             document.getElementById('main-btn').innerText = "DURDUR";
             document.getElementById('main-btn').classList.add('active');
-            speak("Sistem emrinde şefim.");
         } else {
-            recognition.stop();
-            isListening = false;
+            rec.stop(); isListening = false;
             document.getElementById('main-btn').innerText = "SİSTEMİ AÇ";
             document.getElementById('main-btn').classList.remove('active');
         }
     };
 
-    recognition.onresult = (e) => { searchEngine(e.results[e.results.length - 1][0].transcript); };
-
+    rec.onresult = (e) => searchEngine(e.results[e.results.length-1][0].transcript);
     window.onload = setup;
 </script>
 </body>
