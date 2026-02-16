@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saha Şefi V27 - Kesintisiz Mod</title>
+    <title>Saha Şefi V28 - Atomik Kurtarma</title>
     <style>
         :root { --bg: #0b0e14; --panel: #161b22; --border: #30363d; --text: #e6edf3; --accent: #238636; }
-        body { background: var(--bg); color: var(--text); font-family: sans-serif; text-align: center; padding: 10px; }
+        body { background: var(--bg); color: var(--text); font-family: sans-serif; text-align: center; padding: 10px; margin: 0; }
         .wrapper { max-width: 600px; margin: 10px auto; background: var(--panel); padding: 25px; border-radius: 25px; border: 2px solid var(--border); }
         #text-query { width: 90%; padding: 15px; border-radius: 12px; border: 2px solid var(--border); background: var(--bg); color: #58a6ff; font-size: 1.2rem; margin-bottom: 15px; text-align: center; outline: none; }
         #main-btn { width: 100%; padding: 45px 10px; font-size: 2rem; font-weight: 900; background: var(--accent); color: white; border: none; border-radius: 20px; cursor: pointer; }
@@ -18,11 +18,11 @@
 <body>
 
 <div class="wrapper">
-    <h2 style="color:#f0f6fc;">SAHA ŞEFİ V27 - KESİNTİSİZ</h2>
+    <h2 style="color:#f0f6fc;">SAHA ŞEFİ V28 - ATOMİK</h2>
     <input type="text" id="text-query" placeholder="Soru veya İş ID..." onkeypress="if(event.key==='Enter') searchEngine(this.value)">
     <button id="main-btn">🎙️ SİSTEMİ AÇ</button>
-    <div id="status">Yükleniyor...</div>
-    <div id="live-text">Hatalı satırlar otomatik atlanıyor şefim.</div>
+    <div id="status">Bağlanıyor...</div>
+    <div id="live-text">Hatalı satırlar cımbızla ayıklanıyor şefim.</div>
 </div>
 
 <script>
@@ -36,62 +36,61 @@
     let isListening = false;
     let mSha = ""; 
 
-    // KRİTİK FONKSİYON: HATALI JSON'I TAMİR EDER VE ATLAR
-    function smartParse(raw) {
-        try {
-            // Önce temiz bir parse dene
-            const cleanMatch = raw.match(/\[.*\]/s);
-            if (!cleanMatch) return [];
-            return JSON.parse(cleanMatch[0]);
-        } catch (e) {
-            console.log("Hata saptandı, ayıklama başlıyor...");
-            // Eğer JSON.parse patlarsa, satır satır ayıkla
-            const items = [];
-            const blocks = raw.split(/ \s*}, \s*{/); // Blokları ayır
-            
+    // CIMBIZ METODU: JSON bozuk olsa bile süslü parantez bloklarını ayıklar
+    function atomicParse(rawText) {
+        const foundItems = [];
+        // Süslü parantez içindeki her şeyi bulur: { ... }
+        const blocks = rawText.match(/\{[^{}]+\}/g);
+        
+        if (blocks) {
             blocks.forEach(block => {
                 try {
-                    let sanitized = block.trim();
-                    if (!sanitized.startsWith("{")) sanitized = "{" + sanitized;
-                    if (!sanitized.endsWith("}")) sanitized = sanitized + "}";
-                    items.push(JSON.parse(sanitized));
-                } catch (err) {
-                    console.error("Bozuk satır atlandı!");
+                    // Bloğu temizle ve JSON'a çevir
+                    let cleanBlock = block.replace(/[\r\n\t]/g, "").trim();
+                    const item = JSON.parse(cleanBlock);
+                    
+                    // Eğer geçerli bir veri bloğuysa (ID veya Soru varsa) listeye ekle
+                    if (item["İş ID"] || item["soru"]) {
+                        foundItems.push(item);
+                    }
+                } catch (e) {
+                    // Bozuk olan bloğu sessizce atla
+                    console.log("Bir blok atlandı.");
                 }
             });
-            return items;
         }
+        return foundItems;
     }
 
     async function setup() {
         try {
-            // Muhabbet çek
+            // Muhabbet çek ve ayıkla
             const resM = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/${PATH_M}`, {
                 headers: { "Authorization": `token ${GITHUB_TOKEN}` }
             });
             const dataM = await resM.json();
             mSha = dataM.sha;
-            const contentM = smartParse(decodeURIComponent(escape(atob(dataM.content))));
+            const rawM = decodeURIComponent(escape(atob(dataM.content)));
+            const contentM = atomicParse(rawM);
 
-            // İş emirlerini çek
+            // İş emirlerini çek ve ayıkla
             const resI = await fetch(`https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${PATH_I}?t=` + Date.now());
             const rawI = await resI.text();
-            const contentI = smartParse(rawI);
+            const contentI = atomicParse(rawI);
 
             db_full = [...contentM, ...contentI];
-            document.getElementById('status').innerText = "✅ SİSTEM AKTİF (" + db_full.length + " SAĞLAM KAYIT)";
+            document.getElementById('status').innerText = "✅ " + db_full.length + " VERİ KURTARILDI";
         } catch (e) { 
-            document.getElementById('status').innerText = "❌ BAĞLANTI SORUNU!";
+            document.getElementById('status').innerText = "❌ BAĞLANTI HATASI!";
         }
     }
 
-    // ARAMA VE SES SİSTEMİ (Önceki sürümlerle aynı sağlam yapıda)
     function searchEngine(input) {
         const query = input.toLowerCase().trim();
-        if (!query) return;
+        if (!query || db_full.length === 0) return;
 
         const found = db_full.find(item => 
-            Object.values(item).some(v => v.toString().toLowerCase().includes(query))
+            Object.values(item).some(v => v && v.toString().toLowerCase().includes(query))
         );
 
         if (found) {
@@ -99,7 +98,7 @@
             speak(res);
             document.getElementById('live-text').innerText = res;
         } else {
-            speak("Bunu bulamadım şefim.");
+            speak("Sonuç yok şefim.");
         }
     }
 
