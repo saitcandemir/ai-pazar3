@@ -1,5 +1,5 @@
-[
-   
+ [
+    
         {
             "İş ID": "151.01.1601",
             "İş Açıklaması": "ESKİ TİP PLATFORM MONTAJİ",
@@ -4359,54 +4359,6 @@
             "Tornacı Süresi (Dakika)": "40",
             "Montajcı Süresi (Dakika)": "60",
             "sevkıyat Süresi (Dakika)": "60"
-        },
-
-        {
-            "İş ID": "152.50.1303",
-            "İş Açıklaması": "APM 5A EK MASA 302",
-            "Kaynakçı Süresi (Dakika)": "20",
-            "Tornacı Süresi (Dakika)": "40",
-            "Montajcı Süresi (Dakika)": "60",
-            "sevkıyat Süresi (Dakika)": "60"
-        },
-        {
-            "İş ID": "152.51.1202",
-            "İş Açıklaması": "APM 5B MASA 202 MDFLAM",
-            "Kaynakçı Süresi (Dakika)": "20",
-            "Tornacı Süresi (Dakika)": "40",
-            "Montajcı Süresi (Dakika)": "60",
-            "sevkıyat Süresi (Dakika)": "60"
-        },
-        {
-            "Kaynakçı Süresi (Dakika)": "20",
-            "Tornacı Süresi (Dakika)": "40",
-            "Montajcı Süresi (Dakika)": "60",
-            "sevkıyat Süresi (Dakika)": "60"
-        },
-        {
-            "İş ID": "152.10.1220",
-            "İş Açıklaması": "AKA1 TOP ACMA MAKİNESİ",
-            "Kaynakçı Süresi (Dakika)": "20",
-            "Tornacı Süresi (Dakika)": "40",
-            "Montajcı Süresi (Dakika)": "60",
-            "sevkıyat Süresi (Dakika)": "60"
-        },
-        {
-            "İş ID": "152.11.1180",
-            "İş Açıklaması": "ATV TOP YUKLEME VİNCİ 180",
-            "Kaynakçı Süresi (Dakika)": "20",
-            "Tornacı Süresi (Dakika)": "40",
-            "Montajcı Süresi (Dakika)": "60",
-            "sevkıyat Süresi (Dakika)": "60"
-        },
-        {
-            "İş ID": "152.11.1200",
-            "İş Açıklaması": "ATV TOP YUKLEME VİNCİ 200",
-            "Kaynakçı Süresi (Dakika)": "20",
-            "Tornacı Süresi (Dakika)": "40",
-            "Montajcı Süresi (Dakika)": "60",
-            "sevkıyat Süresi (Dakika)": "60"
         }
+
     ]
-
-
